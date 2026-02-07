@@ -1,32 +1,118 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
-# Binaries for programs and plugins
+# =========================
+# OS / System files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log
+logs/
+*.out
+
+# =========================
+# Environment / secrets
+# =========================
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+config/secrets/
+
+# =========================
+# Go build artifacts
+# =========================
+bin/
+dist/
 *.exe
-*.exe~
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
+*.prof
+coverage.out
 
-# Code coverage profiles and other test artifacts
-*.out
-coverage.*
-*.coverprofile
-profile.cov
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
-
-# Go workspace file
+# =========================
+# Go workspace / cache
+# =========================
 go.work
 go.work.sum
 
-# env file
-.env
+# =========================
+# Terraform
+# =========================
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+.terraform.lock.hcl
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Terraform variable files (often contain secrets)
+*.tfvars
+*.tfvars.json
+
+# =========================
+# Docker
+# =========================
+*.tar
+docker-compose.override.yml
+
+# =========================
+# Editor / IDE files
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Node / Discord bot (if used)
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =========================
+# Python (if scripts exist)
+# =========================
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# =========================
+# Backup / archive files
+# =========================
+*.zip
+*.tar.gz
+backups/
+
+# =========================
+# Game data (never commit worlds)
+# =========================
+data/
+world/
+worlds/
+minecraft/world/
+minecraft/data/
+hytale/world/
+hytale/data/
+
+# =========================
+# ECS / AWS artifacts
+# =========================
+*.aws
+.aws/
+
+# =========================
+# Temporary files
+# =========================
+tmp/
+temp/
