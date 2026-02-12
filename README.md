@@ -279,7 +279,7 @@ git push origin main
 ### Phase 1 (Working Minecraft stack)
 
 - [x] Terraform ECS + EC2
-- [ ] Minecraft Docker image
+- [x] Minecraft Docker image
 - [ ] Controller API start/stop via ECS SDK
 - [ ] Backup zip → S3 upload
 - [ ] Discord bot integration
