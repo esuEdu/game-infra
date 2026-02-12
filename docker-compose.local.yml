@@ -1,0 +1,29 @@
+services:
+  minecraft:
+    build:
+      context: ./services/games/minecraft
+    container_name: gamestack-minecraft
+    restart: unless-stopped
+
+    ports:
+      - "25565:25565" # Minecraft server
+      - "25575:25575" # RCON
+
+    environment:
+      EULA: "true"
+
+      # Choose: fabric | forge | vanilla | quilt
+      LOADER: "vanilla"
+      MC_VERSION: "1.21.11"
+
+      # Memory settings
+      JAVA_XMS: "1G"
+      JAVA_XMX: "2G"
+
+      # RCON
+      ENABLE_RCON: "true"
+      RCON_PORT: "25575"
+      RCON_PASSWORD: "devpass"
+
+    volumes:
+      - ./local-data/minecraft:/data
