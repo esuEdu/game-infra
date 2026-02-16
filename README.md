@@ -267,11 +267,45 @@ allowed_api_cidrs       = ["0.0.0.0/0"] # tighten to your IP/CIDR
 allowed_game_cidrs      = ["0.0.0.0/0"] # tighten if needed
 ```
 
-2. Create base infra and ECR repos first:
+2. Create Terraform backend resources once (S3 state + DynamoDB lock):
+
+```bash
+export AWS_REGION=us-east-1
+export TF_STATE_BUCKET=your-unique-terraform-state-bucket
+export TF_LOCK_TABLE=gamestack-terraform-locks
+
+if [ "$AWS_REGION" = "us-east-1" ]; then
+  aws s3api create-bucket --bucket "$TF_STATE_BUCKET" --region "$AWS_REGION"
+else
+  aws s3api create-bucket \
+    --bucket "$TF_STATE_BUCKET" \
+    --region "$AWS_REGION" \
+    --create-bucket-configuration LocationConstraint="$AWS_REGION"
+fi
+
+aws s3api put-bucket-versioning \
+  --bucket "$TF_STATE_BUCKET" \
+  --versioning-configuration Status=Enabled
+
+aws dynamodb create-table \
+  --table-name "$TF_LOCK_TABLE" \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST \
+  --region "$AWS_REGION"
+```
+
+3. Create base infra and ECR repos first:
 
 ```bash
 cd infra/envs/dev
-terraform init
+terraform init \
+  -reconfigure \
+  -backend-config="bucket=${TF_STATE_BUCKET}" \
+  -backend-config="key=game-infra/dev/terraform.tfstate" \
+  -backend-config="region=${AWS_REGION}" \
+  -backend-config="dynamodb_table=${TF_LOCK_TABLE}" \
+  -backend-config="encrypt=true"
 terraform apply \
   -target=module.network \
   -target=module.backups \
@@ -280,7 +314,7 @@ terraform apply \
   -target=module.ecs
 ```
 
-3. Build and push images:
+4. Build and push images:
 
 ```bash
 export AWS_REGION=us-east-1
@@ -299,14 +333,14 @@ docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/route
 docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:latest"
 ```
 
-4. Apply full stack (ECS task definitions + services):
+5. Apply full stack (ECS task definitions + services):
 
 ```bash
 cd infra/envs/dev
 terraform apply
 ```
 
-5. Check service status:
+6. Check service status:
 
 ```bash
 aws ecs list-services --cluster gamestack-dev-cluster --region us-east-1
@@ -316,7 +350,7 @@ aws ecs describe-services \
   --region us-east-1
 ```
 
-6. Get the EC2 public IP and test the API:
+7. Get the EC2 public IP and test the API:
 
 ```bash
 aws ec2 describe-instances \
@@ -351,7 +385,14 @@ Required repository/environment secret:
 
 ```text
 AWS_OIDC_ROLE_ARN
+TF_STATE_BUCKET
+TF_LOCK_TABLE
 ```
+
+`infra-manual.yml` uses S3 remote state and DynamoDB locking via:
+
+- key: `game-infra/<environment>/terraform.tfstate`
+- lock table: `${TF_LOCK_TABLE}`
 
 If OIDC works only on `main`, your AWS role trust policy is probably restricted to one branch.
 Allow your repo refs or environments in `token.actions.githubusercontent.com:sub`, for example:
