@@ -1,0 +1,74 @@
+name: Infra Manual Deploy Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+      operation:
+        description: "Terraform operation"
+        required: true
+        default: "deploy"
+        type: choice
+        options:
+          - deploy
+          - destroy
+      aws_region:
+        description: "AWS region"
+        required: true
+        default: "us-east-1"
+        type: string
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.operation }} (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: terraform-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_DIR: infra/envs/${{ inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Terraform init
+        run: terraform -chdir="${TF_DIR}" init -input=false
+
+      - name: Terraform plan (deploy)
+        if: ${{ inputs.operation == 'deploy' }}
+        run: terraform -chdir="${TF_DIR}" plan -out=tfplan -input=false
+
+      - name: Terraform apply (deploy)
+        if: ${{ inputs.operation == 'deploy' }}
+        run: terraform -chdir="${TF_DIR}" apply -auto-approve tfplan
+
+      - name: Terraform plan (destroy)
+        if: ${{ inputs.operation == 'destroy' }}
+        run: terraform -chdir="${TF_DIR}" plan -destroy -out=tfdestroy -input=false
+
+      - name: Terraform apply (destroy)
+        if: ${{ inputs.operation == 'destroy' }}
+        run: terraform -chdir="${TF_DIR}" apply -auto-approve tfdestroy

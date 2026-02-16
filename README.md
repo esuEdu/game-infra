@@ -337,14 +337,38 @@ curl http://<EC2_PUBLIC_IP>/v1/status
 
 This repo includes workflows for:
 
-- building Docker images
-- pushing to AWS ECR
-- deploying to ECS
+- `.github/workflows/ci-test.yml`
+  Runs on push for every branch + pull requests.
+  Executes Go tests and Terraform fmt/validate.
+- `.github/workflows/infra-manual.yml`
+  Manual workflow (`Run workflow`) with inputs:
+  - `environment`: `dev` or `prod`
+  - `operation`: `deploy` or `destroy`
+  - `aws_region`: defaults to `us-east-1`
+  Uses OIDC with `aws-actions/configure-aws-credentials`.
 
-Once configured, deployment becomes:
+Required repository/environment secret:
 
 ```text
-git push origin main
+AWS_OIDC_ROLE_ARN
+```
+
+If OIDC works only on `main`, your AWS role trust policy is probably restricted to one branch.
+Allow your repo refs or environments in `token.actions.githubusercontent.com:sub`, for example:
+
+```json
+{
+  "StringEquals": {
+    "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+  },
+  "StringLike": {
+    "token.actions.githubusercontent.com:sub": [
+      "repo:YOUR_ORG/YOUR_REPO:ref:refs/heads/*",
+      "repo:YOUR_ORG/YOUR_REPO:environment:dev",
+      "repo:YOUR_ORG/YOUR_REPO:environment:prod"
+    ]
+  }
+}
 ```
 
 ---
