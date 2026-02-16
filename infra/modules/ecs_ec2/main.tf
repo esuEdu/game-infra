@@ -19,6 +19,14 @@ resource "aws_security_group" "host" {
     cidr_blocks = var.allowed_game_cidrs
   }
 
+  # Router / Controller API entrypoint
+  ingress {
+    from_port   = var.router_port
+    to_port     = var.router_port
+    protocol    = "tcp"
+    cidr_blocks = var.allowed_api_cidrs
+  }
+
   # Minecraft
   ingress {
     from_port   = var.minecraft_port
@@ -46,9 +54,9 @@ resource "aws_security_group" "host" {
 data "aws_iam_policy_document" "ec2_assume" {
   statement {
     actions = ["sts:AssumeRole"]
-    principals { 
-        type = "Service" 
-        identifiers = ["ec2.amazonaws.com"] 
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
     }
   }
 }

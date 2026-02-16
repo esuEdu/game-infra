@@ -1,6 +1,7 @@
 services:
   router:
-    image: nginx:1.27-alpine
+    build:
+      context: ./services/router
     container_name: gamestack-router
     depends_on:
       - controller

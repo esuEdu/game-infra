@@ -236,7 +236,7 @@ Examples:
 ### Requirements
 
 - Docker
-- Go 1.21+
+- Go 1.24+
 - Terraform
 - AWS CLI configured
 
@@ -250,15 +250,90 @@ docker compose -f docker-compose.local.yml up --build
 
 ## 🚢 Deployment
 
-### Terraform (AWS Infra)
+### Manual AWS deploy (current)
+
+This repo now provisions ECS resources for:
+
+- `app` task (`router` + `controller`)
+- `minecraft` task
+
+Use this first-run flow:
+
+1. Add `infra/envs/dev/terraform.tfvars` (recommended):
+
+```hcl
+minecraft_rcon_password = "change-me-please"
+allowed_api_cidrs       = ["0.0.0.0/0"] # tighten to your IP/CIDR
+allowed_game_cidrs      = ["0.0.0.0/0"] # tighten if needed
+```
+
+2. Create base infra and ECR repos first:
 
 ```bash
 cd infra/envs/dev
 terraform init
+terraform apply \
+  -target=module.network \
+  -target=module.backups \
+  -target=module.ecr \
+  -target=module.iam \
+  -target=module.ecs
+```
+
+3. Build and push images:
+
+```bash
+export AWS_REGION=us-east-1
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export ECR_PREFIX=gamestack-dev
+
+aws ecr get-login-password --region "$AWS_REGION" | \
+  docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/controller:latest" services/controller
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/router:latest" services/router
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:latest" services/games/minecraft
+
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/controller:latest"
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/router:latest"
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:latest"
+```
+
+4. Apply full stack (ECS task definitions + services):
+
+```bash
+cd infra/envs/dev
 terraform apply
 ```
 
-### GitHub Actions
+5. Check service status:
+
+```bash
+aws ecs list-services --cluster gamestack-dev-cluster --region us-east-1
+aws ecs describe-services \
+  --cluster gamestack-dev-cluster \
+  --services gamestack-dev-app gamestack-dev-minecraft \
+  --region us-east-1
+```
+
+6. Get the EC2 public IP and test the API:
+
+```bash
+aws ec2 describe-instances \
+  --filters "Name=tag:aws:autoscaling:groupName,Values=gamestack-dev-asg" \
+  --query "Reservations[].Instances[?State.Name=='running'].PublicIpAddress" \
+  --output text \
+  --region us-east-1
+```
+
+Then call:
+
+```bash
+curl http://<EC2_PUBLIC_IP>/healthz
+curl http://<EC2_PUBLIC_IP>/v1/status
+```
+
+### GitHub Actions (next)
 
 This repo includes workflows for:
 
