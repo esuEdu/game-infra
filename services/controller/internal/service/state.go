@@ -10,7 +10,7 @@ import (
 
 type State struct {
 	ActiveGame domain.GameType `json:"active_game"`
-	Phase      string          `json:"phase"` // "stopped", "running", "switching", ...
+	Phase      string          `json:"phase"`
 	UpdatedAt  time.Time       `json:"updated_at"`
 }
 

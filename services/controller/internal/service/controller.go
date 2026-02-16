@@ -15,7 +15,7 @@ type ControllerService struct {
 	state    StateStore
 	adapters map[string]Adapter
 
-	opMu sync.Mutex // prevents overlapping workflows
+	opMu sync.Mutex
 }
 
 func NewControllerService(log *slog.Logger, state StateStore, adapters map[string]Adapter) *ControllerService {
@@ -35,7 +35,6 @@ func (c *ControllerService) Start(ctx context.Context, game string) error {
 		return domain.ErrUnknownGameType
 	}
 
-	// If something is active, stop it first (simple policy)
 	st, _ := c.state.Get(ctx)
 	if st.ActiveGame != "" && st.ActiveGame != ad.Type() {
 		if err := c.stopUnsafe(ctx, st.ActiveGame); err != nil {
@@ -78,7 +77,6 @@ func (c *ControllerService) Switch(ctx context.Context, game string) error {
 
 	st, _ := c.state.Get(ctx)
 	if st.ActiveGame == target.Type() {
-		// already on target
 		return nil
 	}
 
@@ -112,7 +110,6 @@ func (c *ControllerService) Backup(ctx context.Context) (string, error) {
 }
 
 func (c *ControllerService) Command(ctx context.Context, cmd string) error {
-	// commands can be frequent; still serialize to avoid weirdness
 	c.opMu.Lock()
 	defer c.opMu.Unlock()
 
