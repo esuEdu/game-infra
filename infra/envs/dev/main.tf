@@ -1,10 +1,10 @@
 module "network" {
-    source = "../../modules/network"
-    name = var.name
-    environment = var.environment
-    cidr_block = "10.30.0.0/16"
-    az_count = 1
-    public_subnet_cidrs = ["10.30.10.0/24", "10.30.11.0/24" ]
+  source              = "../../modules/network"
+  name                = var.name
+  environment         = var.environment
+  cidr_block          = "10.30.0.0/16"
+  az_count            = 1
+  public_subnet_cidrs = ["10.30.10.0/24", "10.30.11.0/24"]
 }
 
 module "backups" {
@@ -26,9 +26,32 @@ module "iam" {
 }
 
 module "ecs" {
-  source            = "../../modules/ecs_ec2"
-  name              = var.name
-  vpc_id            = module.network.vpc_id
+  source             = "../../modules/ecs_ec2"
+  name               = var.name
+  vpc_id             = module.network.vpc_id
   public_subnet_ids  = module.network.public_subnet_ids
+  allowed_api_cidrs  = var.allowed_api_cidrs
   allowed_game_cidrs = var.allowed_game_cidrs
+  router_port        = var.router_port
+  minecraft_port     = var.minecraft_host_port
+}
+
+module "ecs_services" {
+  source = "../../modules/ecs_services"
+
+  name               = var.name
+  aws_region         = var.aws_region
+  cluster_name       = module.ecs.cluster_name
+  execution_role_arn = module.iam.execution_role_arn
+  task_role_arn      = module.iam.task_role_arn
+  ecr_repo_urls      = module.ecr.repo_urls
+  backup_bucket_name = module.backups.bucket_name
+
+  router_host_port        = var.router_port
+  minecraft_host_port     = var.minecraft_host_port
+  minecraft_rcon_port     = var.minecraft_rcon_port
+  minecraft_loader        = var.minecraft_loader
+  minecraft_version       = var.minecraft_version
+  minecraft_server_url    = var.minecraft_server_url
+  minecraft_rcon_password = var.minecraft_rcon_password
 }

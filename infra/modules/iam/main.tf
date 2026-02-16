@@ -1,9 +1,9 @@
 data "aws_iam_policy_document" "ecs_task_assume" {
   statement {
     actions = ["sts:AssumeRole"]
-    principals { 
-        type = "Service" 
-        identifiers = ["ecs-tasks.amazonaws.com"] 
+    principals {
+      type        = "Service"
+      identifiers = ["ecs-tasks.amazonaws.com"]
     }
   }
 }
@@ -27,7 +27,7 @@ resource "aws_iam_role" "task" {
 
 data "aws_iam_policy_document" "controller" {
   statement {
-    sid     = "ECSControl"
+    sid = "ECSControl"
     actions = [
       "ecs:RunTask", "ecs:StopTask", "ecs:DescribeTasks",
       "ecs:UpdateService", "ecs:DescribeServices",

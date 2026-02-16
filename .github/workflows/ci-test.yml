@@ -1,0 +1,49 @@
+name: CI Test
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  controller:
+    name: Controller Build And Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/controller/go.mod
+
+      - name: Run go test
+        working-directory: services/controller
+        run: go test ./...
+
+  terraform:
+    name: Terraform Format And Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform fmt check
+        run: terraform fmt -check -recursive infra
+
+      - name: Terraform init/validate (dev + prod)
+        shell: bash
+        run: |
+          set -euo pipefail
+          for env in dev prod; do
+            echo "Validating infra/envs/${env}"
+            terraform -chdir="infra/envs/${env}" init -backend=false -input=false
+            terraform -chdir="infra/envs/${env}" validate
+          done

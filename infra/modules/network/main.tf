@@ -20,9 +20,9 @@ resource "aws_vpc" "this" {
 
 resource "aws_internet_gateway" "this" {
   vpc_id = aws_vpc.this.id
-  tags   = { 
+  tags = {
     environment = var.environment
-    Name        = "${var.name}-igw" 
+    Name        = "${var.name}-igw"
     owner       = "terraform"
   }
 }
@@ -34,18 +34,18 @@ resource "aws_subnet" "public" {
   availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = true
 
-  tags = { 
+  tags = {
     environment = var.environment
-    Name        = "${var.name}-public-${count.index}" 
+    Name        = "${var.name}-public-${count.index}"
     owner       = "terraform"
   }
 }
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.this.id
-  tags   = { 
+  tags = {
     environment = var.environment
-    Name        = "${var.name}-public-rt" 
+    Name        = "${var.name}-public-rt"
     owner       = "terraform"
   }
 }
