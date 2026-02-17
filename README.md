@@ -267,12 +267,11 @@ allowed_api_cidrs       = ["0.0.0.0/0"] # tighten to your IP/CIDR
 allowed_game_cidrs      = ["0.0.0.0/0"] # tighten if needed
 ```
 
-2. Create Terraform backend resources once (S3 state + DynamoDB lock):
+2. Create Terraform backend resources once (S3 state bucket):
 
 ```bash
 export AWS_REGION=us-east-1
 export TF_STATE_BUCKET=your-unique-terraform-state-bucket
-export TF_LOCK_TABLE=gamestack-terraform-locks
 
 if [ "$AWS_REGION" = "us-east-1" ]; then
   aws s3api create-bucket --bucket "$TF_STATE_BUCKET" --region "$AWS_REGION"
@@ -286,13 +285,6 @@ fi
 aws s3api put-bucket-versioning \
   --bucket "$TF_STATE_BUCKET" \
   --versioning-configuration Status=Enabled
-
-aws dynamodb create-table \
-  --table-name "$TF_LOCK_TABLE" \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST \
-  --region "$AWS_REGION"
 ```
 
 3. Create base infra and ECR repos first:
@@ -304,7 +296,7 @@ terraform init \
   -backend-config="bucket=${TF_STATE_BUCKET}" \
   -backend-config="key=game-infra/dev/terraform.tfstate" \
   -backend-config="region=${AWS_REGION}" \
-  -backend-config="dynamodb_table=${TF_LOCK_TABLE}" \
+  -backend-config="use_lockfile=true" \
   -backend-config="encrypt=true"
 terraform apply \
   -target=module.network \
@@ -386,13 +378,12 @@ Required repository/environment secret:
 ```text
 AWS_OIDC_ROLE_ARN
 TF_STATE_BUCKET
-TF_LOCK_TABLE
 ```
 
-`infra-manual.yml` uses S3 remote state and DynamoDB locking via:
+`infra-manual.yml` uses S3 remote state with native lockfile via:
 
 - key: `game-infra/<environment>/terraform.tfstate`
-- lock table: `${TF_LOCK_TABLE}`
+- lock: `use_lockfile=true`
 
 If OIDC works only on `main`, your AWS role trust policy is probably restricted to one branch.
 Allow your repo refs or environments in `token.actions.githubusercontent.com:sub`, for example:
