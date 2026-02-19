@@ -390,6 +390,10 @@ This repo includes workflows for:
   - `operation`: `deploy` or `destroy`
   - `aws_region`: defaults to `us-east-1`
   Uses OIDC with `aws-actions/configure-aws-credentials`.
+  For `deploy`, it runs this sequence automatically:
+  1. Terraform bootstrap apply (`network`, `backups`, `ecr`, `iam`, `ecs`)
+  2. Build/push `controller`, `router`, and `minecraft` images to ECR
+  3. Terraform full apply (ECS services/task definitions)
 
 Required repository/environment secret:
 

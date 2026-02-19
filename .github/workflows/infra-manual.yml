@@ -41,6 +41,7 @@ jobs:
       TF_INPUT: "false"
       TF_DIR: infra/envs/${{ inputs.environment }}
       TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      AWS_REGION: ${{ inputs.aws_region }}
 
     steps:
       - name: Checkout code
@@ -72,13 +73,86 @@ jobs:
             -backend-config="use_lockfile=true" \
             -backend-config="encrypt=true"
 
-      - name: Terraform plan (deploy)
+      - name: Terraform apply (bootstrap infra + ECR)
         if: ${{ inputs.operation == 'deploy' }}
-        run: terraform -chdir="${TF_DIR}" plan -out=tfplan -input=false
+        id: bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RqsE 'module[[:space:]]+"network"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"backups"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"ecr"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"iam"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"ecs"' "${TF_DIR}"; then
+            terraform -chdir="${TF_DIR}" apply -auto-approve -input=false \
+              -target=module.network \
+              -target=module.backups \
+              -target=module.ecr \
+              -target=module.iam \
+              -target=module.ecs
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No bootstrap module set found in ${TF_DIR}; skipping targeted bootstrap apply."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Terraform apply (deploy)
+      - name: Resolve ECR repository URLs
+        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
+        id: ecr
+        shell: bash
+        run: |
+          set -euo pipefail
+          ecr_json="$(terraform -chdir="${TF_DIR}" output -json ecr_repo_urls)"
+          controller_repo="$(echo "${ecr_json}" | jq -r '.controller')"
+          router_repo="$(echo "${ecr_json}" | jq -r '.router')"
+          minecraft_repo="$(echo "${ecr_json}" | jq -r '.minecraft')"
+
+          : "${controller_repo:?missing controller ECR repo output}"
+          : "${router_repo:?missing router ECR repo output}"
+          : "${minecraft_repo:?missing minecraft ECR repo output}"
+
+          echo "controller_repo=${controller_repo}" >> "$GITHUB_OUTPUT"
+          echo "router_repo=${router_repo}" >> "$GITHUB_OUTPUT"
+          echo "minecraft_repo=${minecraft_repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Amazon ECR
+        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push controller image
+        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t "${{ steps.ecr.outputs.controller_repo }}:latest" \
+            services/controller
+
+      - name: Build and push router image
+        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t "${{ steps.ecr.outputs.router_repo }}:latest" \
+            services/router
+
+      - name: Build and push minecraft image
+        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t "${{ steps.ecr.outputs.minecraft_repo }}:latest" \
+            services/games/minecraft
+
+      - name: Terraform apply (full stack)
         if: ${{ inputs.operation == 'deploy' }}
-        run: terraform -chdir="${TF_DIR}" apply -auto-approve tfplan
+        run: terraform -chdir="${TF_DIR}" apply -auto-approve -input=false
 
       - name: Terraform plan (destroy)
         if: ${{ inputs.operation == 'destroy' }}
