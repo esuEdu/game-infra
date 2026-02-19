@@ -26,6 +26,11 @@ variable "backup_bucket_name" {
   type = string
 }
 
+variable "backup_prefix" {
+  type    = string
+  default = "backups"
+}
+
 variable "controller_desired_count" {
   type    = number
   default = 1
@@ -33,7 +38,7 @@ variable "controller_desired_count" {
 
 variable "minecraft_desired_count" {
   type    = number
-  default = 1
+  default = 0
 }
 
 variable "router_host_port" {
@@ -61,6 +66,27 @@ variable "minecraft_data_host_path" {
   default = "/var/lib/gamestack/minecraft"
 }
 
+variable "controller_minecraft_data_dir" {
+  type    = string
+  default = "/srv/minecraft-data"
+}
+
+variable "controller_git_user_name" {
+  type    = string
+  default = "GameStack Bot"
+}
+
+variable "controller_git_user_email" {
+  type    = string
+  default = "gamestack-bot@example.com"
+}
+
+variable "controller_git_auth_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 variable "minecraft_loader" {
   type    = string
   default = "fabric"
@@ -84,6 +110,27 @@ variable "minecraft_java_xmx" {
 variable "minecraft_server_url" {
   type    = string
   default = ""
+}
+
+variable "minecraft_git_bootstrap_repo" {
+  type    = string
+  default = ""
+}
+
+variable "minecraft_git_bootstrap_ref" {
+  type    = string
+  default = "main"
+}
+
+variable "minecraft_git_bootstrap_path" {
+  type    = string
+  default = ""
+}
+
+variable "minecraft_git_bootstrap_token" {
+  type      = string
+  sensitive = true
+  default   = ""
 }
 
 variable "minecraft_rcon_password" {

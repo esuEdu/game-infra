@@ -52,6 +52,48 @@ variable "minecraft_server_url" {
   default = ""
 }
 
+variable "minecraft_git_bootstrap_repo" {
+  type    = string
+  default = ""
+}
+
+variable "minecraft_git_bootstrap_ref" {
+  type    = string
+  default = "main"
+}
+
+variable "minecraft_git_bootstrap_path" {
+  type    = string
+  default = ""
+}
+
+variable "minecraft_git_bootstrap_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
+variable "backup_prefix" {
+  type    = string
+  default = "backups"
+}
+
+variable "controller_git_user_name" {
+  type    = string
+  default = "GameStack Bot"
+}
+
+variable "controller_git_user_email" {
+  type    = string
+  default = "gamestack-bot@example.com"
+}
+
+variable "controller_git_auth_token" {
+  type      = string
+  sensitive = true
+  default   = ""
+}
+
 variable "minecraft_rcon_password" {
   type      = string
   sensitive = true

@@ -46,12 +46,20 @@ module "ecs_services" {
   task_role_arn      = module.iam.task_role_arn
   ecr_repo_urls      = module.ecr.repo_urls
   backup_bucket_name = module.backups.bucket_name
+  backup_prefix      = var.backup_prefix
 
-  router_host_port        = var.router_port
-  minecraft_host_port     = var.minecraft_host_port
-  minecraft_rcon_port     = var.minecraft_rcon_port
-  minecraft_loader        = var.minecraft_loader
-  minecraft_version       = var.minecraft_version
-  minecraft_server_url    = var.minecraft_server_url
-  minecraft_rcon_password = var.minecraft_rcon_password
+  router_host_port              = var.router_port
+  minecraft_host_port           = var.minecraft_host_port
+  minecraft_rcon_port           = var.minecraft_rcon_port
+  minecraft_loader              = var.minecraft_loader
+  minecraft_version             = var.minecraft_version
+  minecraft_server_url          = var.minecraft_server_url
+  minecraft_git_bootstrap_repo  = var.minecraft_git_bootstrap_repo
+  minecraft_git_bootstrap_ref   = var.minecraft_git_bootstrap_ref
+  minecraft_git_bootstrap_path  = var.minecraft_git_bootstrap_path
+  minecraft_git_bootstrap_token = var.minecraft_git_bootstrap_token
+  controller_git_user_name      = var.controller_git_user_name
+  controller_git_user_email     = var.controller_git_user_email
+  controller_git_auth_token     = var.controller_git_auth_token
+  minecraft_rcon_password       = var.minecraft_rcon_password
 }

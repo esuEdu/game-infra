@@ -15,6 +15,8 @@ type GameAdapter interface {
 	Stop(ctx context.Context) error
 	Backup(ctx context.Context) (backupKey string, err error)
 	Restore(ctx context.Context, backupKey string) error
+	SeedFromSource(ctx context.Context, sourceURL string) error
+	SyncToSource(ctx context.Context, sourceURL string) error
 	SendCommand(ctx context.Context, command string) error
 	Status(ctx context.Context) (map[string]any, error)
 }

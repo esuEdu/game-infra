@@ -20,7 +20,69 @@ RCON_PASSWORD="${RCON_PASSWORD:-change-me}"
 # Where to put the runnable jar
 SERVER_JAR="${SERVER_JAR:-${DATA_DIR}/server.jar}"
 
+# Optional bootstrap source (GitHub repo)
+GIT_BOOTSTRAP_REPO="${GIT_BOOTSTRAP_REPO:-}"
+GIT_BOOTSTRAP_REF="${GIT_BOOTSTRAP_REF:-main}"
+GIT_BOOTSTRAP_PATH="${GIT_BOOTSTRAP_PATH:-}"
+GIT_BOOTSTRAP_TOKEN="${GIT_BOOTSTRAP_TOKEN:-}"
+
 mkdir -p "${DATA_DIR}"
+
+bootstrap_from_git () {
+  if [[ -z "${GIT_BOOTSTRAP_REPO}" ]]; then
+    return
+  fi
+
+  local tmp_dir repo_url src_dir
+  tmp_dir="$(mktemp -d)"
+  repo_url="${GIT_BOOTSTRAP_REPO}"
+
+  if [[ -n "${GIT_BOOTSTRAP_TOKEN}" && "${repo_url}" =~ ^https:// ]]; then
+    repo_url="${repo_url/https:\/\//https:\/\/${GIT_BOOTSTRAP_TOKEN}@}"
+  fi
+
+  echo "Bootstrapping server files from git repo..."
+  git clone --depth 1 --branch "${GIT_BOOTSTRAP_REF}" "${repo_url}" "${tmp_dir}/repo"
+
+  src_dir="${tmp_dir}/repo"
+  if [[ -n "${GIT_BOOTSTRAP_PATH}" ]]; then
+    src_dir="${src_dir}/${GIT_BOOTSTRAP_PATH}"
+  fi
+
+  if [[ ! -d "${src_dir}" ]]; then
+    echo "GIT_BOOTSTRAP_PATH not found in repo: ${GIT_BOOTSTRAP_PATH}"
+    rm -rf "${tmp_dir}"
+    exit 1
+  fi
+
+  shopt -s dotglob nullglob
+  for item in "${src_dir}"/*; do
+    if [[ "$(basename "${item}")" == ".git" ]]; then
+      continue
+    fi
+    cp -a "${item}" "${DATA_DIR}/"
+  done
+  shopt -u dotglob nullglob
+
+  rm -rf "${tmp_dir}"
+}
+
+# If server jar is missing, optionally pull initial files from git first.
+if [[ ! -f "${SERVER_JAR}" ]]; then
+  bootstrap_from_git
+fi
+
+# If a known jar exists, normalize it to SERVER_JAR before installer fallback.
+if [[ ! -f "${SERVER_JAR}" ]]; then
+  if [[ -f "${DATA_DIR}/fabric-server-launch.jar" ]]; then
+    ln -sf "${DATA_DIR}/fabric-server-launch.jar" "${SERVER_JAR}"
+  else
+    FORGE_EXISTING_JAR="$(ls -1 "${DATA_DIR}"/forge-*-server.jar 2>/dev/null | head -n 1 || true)"
+    if [[ -n "${FORGE_EXISTING_JAR}" ]]; then
+      ln -sf "${FORGE_EXISTING_JAR}" "${SERVER_JAR}"
+    fi
+  fi
+fi
 
 # eula
 if [[ "${EULA}" == "true" ]]; then
