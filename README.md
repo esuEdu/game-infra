@@ -196,20 +196,24 @@ Example REST API:
 
 | Method | Endpoint             | Description                 |
 | ------ | -------------------- | --------------------------- |
-| POST   | `/v1/server/start`   | Start a game server         |
-| POST   | `/v1/server/stop`    | Stop the running server     |
+| POST   | `/v1/server/start`   | Start from data URL or last backup |
+| POST   | `/v1/server/stop`    | Stop, backup to S3, sync to source |
 | POST   | `/v1/server/switch`  | Switch active game          |
 | POST   | `/v1/server/backup`  | Backup active game world    |
 | POST   | `/v1/server/command` | Send command to game server |
 | GET    | `/v1/status`         | Server + state status       |
 
-Example request:
+Start request with fresh data source:
 
 ```json
 {
-	"game": "minecraft"
+	"game": "minecraft",
+	"data_url": "https://github.com/YOUR_ORG/YOUR_MC_FILES_REPO.git"
 }
 ```
+
+If `data_url` is omitted, controller tries to restore the latest backup for that game.
+If no backup exists, start returns an error and does not start the server.
 
 ---
 
@@ -265,6 +269,21 @@ Use this first-run flow:
 minecraft_rcon_password = "change-me-please"
 allowed_api_cidrs       = ["0.0.0.0/0"] # tighten to your IP/CIDR
 allowed_game_cidrs      = ["0.0.0.0/0"] # tighten if needed
+
+# Optional: bootstrap /data from GitHub repo on first start
+minecraft_git_bootstrap_repo  = "https://github.com/YOUR_ORG/YOUR_MC_FILES_REPO.git"
+minecraft_git_bootstrap_ref   = "main"
+minecraft_git_bootstrap_path  = "" # optional subfolder inside repo
+minecraft_git_bootstrap_token = "" # required only for private repos
+
+# Controller backup/sync settings
+backup_prefix            = "backups"
+controller_git_user_name = "GameStack Bot"
+controller_git_user_email = "gamestack-bot@example.com"
+controller_git_auth_token = "" # required if controller must push to private GitHub repo
+
+# ECS image tag for this environment
+image_tag = "dev-latest"
 ```
 
 2. Create Terraform backend resources once (S3 state bucket):
@@ -325,12 +344,27 @@ docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/route
 docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:latest"
 ```
 
+For environment-specific tags, use:
+
+```bash
+export IMAGE_TAG=dev-latest
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/controller:${IMAGE_TAG}" services/controller
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/router:${IMAGE_TAG}" services/router
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:${IMAGE_TAG}" services/games/minecraft
+
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/controller:${IMAGE_TAG}"
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/router:${IMAGE_TAG}"
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:${IMAGE_TAG}"
+```
+
 5. Apply full stack (ECS task definitions + services):
 
 ```bash
 cd infra/envs/dev
 terraform apply
 ```
+
+Minecraft service default desired count is `0`, so it stays off until you call `POST /v1/server/start`.
 
 6. Check service status:
 
@@ -371,7 +405,14 @@ This repo includes workflows for:
   - `environment`: `dev` or `prod`
   - `operation`: `deploy` or `destroy`
   - `aws_region`: defaults to `us-east-1`
-  Uses OIDC with `aws-actions/configure-aws-credentials`.
+  Infra only (Terraform init/apply/destroy), no Docker image build.
+- `.github/workflows/images-manual.yml`
+  Manual workflow (`Run workflow`) with inputs:
+  - `environment`: `dev` or `prod`
+  - `aws_region`: defaults to `us-east-1`
+  Builds/pushes `controller`, `router`, and `minecraft` images to ECR with env tag:
+  - `dev` -> `dev-latest`
+  - `prod` -> `prod-latest`
 
 Required repository/environment secret:
 
@@ -411,8 +452,8 @@ Allow your repo refs or environments in `token.actions.githubusercontent.com:sub
 
 - [x] Terraform ECS + EC2
 - [x] Minecraft Docker image
-- [ ] Controller API start/stop via ECS SDK
-- [ ] Backup zip → S3 upload
+- [x] Controller API start/stop via ECS SDK
+- [x] Backup zip → S3 upload
 - [ ] Discord bot integration
 
 ### Phase 2 (Switching support)

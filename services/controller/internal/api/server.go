@@ -19,14 +19,14 @@ func NewServer(a *app.App) *http.Server {
 	h = recoverPanic(a.Log, h)
 	h = accessLog(a.Log, h)
 	h = limitInFlight(256, h)
-	h = withTimeout(25*time.Second, h)
+	h = withTimeout(10*time.Minute, h)
 
 	return &http.Server{
 		Addr:              a.Config.HTTPAddr,
 		Handler:           h,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      20 * time.Second,
+		WriteTimeout:      11 * time.Minute,
 		IdleTimeout:       60 * time.Second,
 	}
 }

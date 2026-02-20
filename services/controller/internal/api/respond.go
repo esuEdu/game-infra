@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+
+	"github.com/esuEdu/game-infra/controller/internal/domain"
 )
 
 type httpError struct {
@@ -31,6 +33,19 @@ func writeError(aLog func(msg string, args ...any), w http.ResponseWriter, err e
 	var he httpError
 	if errors.As(err, &he) {
 		writeJSON(w, he.Status, map[string]any{"error": he.Message})
+		return
+	}
+
+	if errors.Is(err, domain.ErrUnknownGameType) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	if errors.Is(err, domain.ErrNoBackupForGame) {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+	if errors.Is(err, domain.ErrNoActiveGame) {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": err.Error()})
 		return
 	}
 

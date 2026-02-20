@@ -17,10 +17,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # ---- runtime stage ----
 FROM alpine:3.20
 
-# RUN apk add --no-cache ca-certificates
-
-RUN addgroup -S app && adduser -S app -G app
-USER app
+RUN apk add --no-cache \
+    ca-certificates \
+    git
 
 WORKDIR /app
 COPY --from=build /out/controller ./controller

@@ -1,7 +1,7 @@
 FROM eclipse-temurin:21-jre-jammy
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl jq unzip gosu \
+    ca-certificates curl git jq unzip gosu \
   && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -u 1000 minecraft

@@ -1,0 +1,137 @@
+name: Images Manual Build Push
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
+      aws_region:
+        description: "AWS region"
+        required: true
+        default: "us-east-1"
+        type: string
+
+jobs:
+  images:
+    name: Build Push Images (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    concurrency:
+      group: images-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_DIR: infra/envs/${{ inputs.environment }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      AWS_REGION: ${{ inputs.aws_region }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ inputs.aws_region }}
+
+      - name: Check backend config secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${TF_STATE_BUCKET:?Missing secret TF_STATE_BUCKET}"
+
+      - name: Terraform init
+        run: |
+          terraform -chdir="${TF_DIR}" init \
+            -input=false \
+            -reconfigure \
+            -backend-config="bucket=${TF_STATE_BUCKET}" \
+            -backend-config="key=game-infra/${{ inputs.environment }}/terraform.tfstate" \
+            -backend-config="region=${{ inputs.aws_region }}" \
+            -backend-config="use_lockfile=true" \
+            -backend-config="encrypt=true"
+
+      - name: Ensure ECR repositories exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RqsE 'module[[:space:]]+"ecr"' "${TF_DIR}"; then
+            terraform -chdir="${TF_DIR}" apply -auto-approve -input=false -target=module.ecr
+          else
+            echo "module.ecr not found under ${TF_DIR}. Run infra deploy first."
+            exit 1
+          fi
+
+      - name: Resolve ECR repository URLs
+        id: ecr
+        shell: bash
+        run: |
+          set -euo pipefail
+          ecr_json="$(terraform -chdir="${TF_DIR}" output -json ecr_repo_urls)"
+          controller_repo="$(echo "${ecr_json}" | jq -r '.controller')"
+          router_repo="$(echo "${ecr_json}" | jq -r '.router')"
+          minecraft_repo="$(echo "${ecr_json}" | jq -r '.minecraft')"
+
+          : "${controller_repo:?missing controller ECR repo output}"
+          : "${router_repo:?missing router ECR repo output}"
+          : "${minecraft_repo:?missing minecraft ECR repo output}"
+
+          echo "controller_repo=${controller_repo}" >> "$GITHUB_OUTPUT"
+          echo "router_repo=${router_repo}" >> "$GITHUB_OUTPUT"
+          echo "minecraft_repo=${minecraft_repo}" >> "$GITHUB_OUTPUT"
+
+      - name: Select image tag by environment
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ inputs.environment }}" in
+            dev) tag="dev-latest" ;;
+            prod) tag="prod-latest" ;;
+            *) echo "Unsupported environment: ${{ inputs.environment }}"; exit 1 ;;
+          esac
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push controller image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t "${{ steps.ecr.outputs.controller_repo }}:${{ steps.tags.outputs.tag }}" \
+            services/controller
+
+      - name: Build and push router image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t "${{ steps.ecr.outputs.router_repo }}:${{ steps.tags.outputs.tag }}" \
+            services/router
+
+      - name: Build and push minecraft image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            --push \
+            -t "${{ steps.ecr.outputs.minecraft_repo }}:${{ steps.tags.outputs.tag }}" \
+            services/games/minecraft
