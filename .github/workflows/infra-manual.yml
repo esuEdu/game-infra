@@ -75,7 +75,6 @@ jobs:
 
       - name: Terraform apply (bootstrap infra + ECR)
         if: ${{ inputs.operation == 'deploy' }}
-        id: bootstrap
         shell: bash
         run: |
           set -euo pipefail
@@ -90,65 +89,9 @@ jobs:
               -target=module.ecr \
               -target=module.iam \
               -target=module.ecs
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "No bootstrap module set found in ${TF_DIR}; skipping targeted bootstrap apply."
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Resolve ECR repository URLs
-        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
-        id: ecr
-        shell: bash
-        run: |
-          set -euo pipefail
-          ecr_json="$(terraform -chdir="${TF_DIR}" output -json ecr_repo_urls)"
-          controller_repo="$(echo "${ecr_json}" | jq -r '.controller')"
-          router_repo="$(echo "${ecr_json}" | jq -r '.router')"
-          minecraft_repo="$(echo "${ecr_json}" | jq -r '.minecraft')"
-
-          : "${controller_repo:?missing controller ECR repo output}"
-          : "${router_repo:?missing router ECR repo output}"
-          : "${minecraft_repo:?missing minecraft ECR repo output}"
-
-          echo "controller_repo=${controller_repo}" >> "$GITHUB_OUTPUT"
-          echo "router_repo=${router_repo}" >> "$GITHUB_OUTPUT"
-          echo "minecraft_repo=${minecraft_repo}" >> "$GITHUB_OUTPUT"
-
-      - name: Setup Docker Buildx
-        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Amazon ECR
-        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Build and push controller image
-        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
-        run: |
-          docker buildx build \
-            --platform linux/amd64 \
-            --push \
-            -t "${{ steps.ecr.outputs.controller_repo }}:latest" \
-            services/controller
-
-      - name: Build and push router image
-        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
-        run: |
-          docker buildx build \
-            --platform linux/amd64 \
-            --push \
-            -t "${{ steps.ecr.outputs.router_repo }}:latest" \
-            services/router
-
-      - name: Build and push minecraft image
-        if: ${{ inputs.operation == 'deploy' && steps.bootstrap.outputs.enabled == 'true' }}
-        run: |
-          docker buildx build \
-            --platform linux/amd64 \
-            --push \
-            -t "${{ steps.ecr.outputs.minecraft_repo }}:latest" \
-            services/games/minecraft
 
       - name: Terraform apply (full stack)
         if: ${{ inputs.operation == 'deploy' }}

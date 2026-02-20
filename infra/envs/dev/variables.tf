@@ -7,6 +7,11 @@ variable "name" {
   default = "gamestack-dev"
 }
 
+variable "image_tag" {
+  type    = string
+  default = "dev-latest"
+}
+
 variable "environment" {
   type    = string
   default = "desenv"

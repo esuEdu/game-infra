@@ -22,6 +22,11 @@ variable "ecr_repo_urls" {
   type = map(string)
 }
 
+variable "image_tag" {
+  type    = string
+  default = "latest"
+}
+
 variable "backup_bucket_name" {
   type = string
 }

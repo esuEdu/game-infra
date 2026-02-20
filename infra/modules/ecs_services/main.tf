@@ -141,7 +141,7 @@ resource "aws_ecs_task_definition" "app" {
   container_definitions = jsonencode([
     {
       name              = "controller"
-      image             = "${var.ecr_repo_urls["controller"]}:latest"
+      image             = "${var.ecr_repo_urls["controller"]}:${var.image_tag}"
       essential         = true
       memoryReservation = 256
       environment       = local.controller_env
@@ -163,7 +163,7 @@ resource "aws_ecs_task_definition" "app" {
     },
     {
       name              = "router"
-      image             = "${var.ecr_repo_urls["router"]}:latest"
+      image             = "${var.ecr_repo_urls["router"]}:${var.image_tag}"
       essential         = true
       memoryReservation = 128
       links             = ["controller"]
@@ -207,7 +207,7 @@ resource "aws_ecs_task_definition" "minecraft" {
   container_definitions = jsonencode([
     {
       name              = "minecraft"
-      image             = "${var.ecr_repo_urls["minecraft"]}:latest"
+      image             = "${var.ecr_repo_urls["minecraft"]}:${var.image_tag}"
       essential         = true
       memoryReservation = 2048
       environment       = local.minecraft_env

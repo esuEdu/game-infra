@@ -45,6 +45,7 @@ module "ecs_services" {
   execution_role_arn = module.iam.execution_role_arn
   task_role_arn      = module.iam.task_role_arn
   ecr_repo_urls      = module.ecr.repo_urls
+  image_tag          = var.image_tag
   backup_bucket_name = module.backups.bucket_name
   backup_prefix      = var.backup_prefix
 

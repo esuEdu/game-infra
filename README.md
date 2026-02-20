@@ -281,6 +281,9 @@ backup_prefix            = "backups"
 controller_git_user_name = "GameStack Bot"
 controller_git_user_email = "gamestack-bot@example.com"
 controller_git_auth_token = "" # required if controller must push to private GitHub repo
+
+# ECS image tag for this environment
+image_tag = "dev-latest"
 ```
 
 2. Create Terraform backend resources once (S3 state bucket):
@@ -341,6 +344,19 @@ docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/route
 docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:latest"
 ```
 
+For environment-specific tags, use:
+
+```bash
+export IMAGE_TAG=dev-latest
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/controller:${IMAGE_TAG}" services/controller
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/router:${IMAGE_TAG}" services/router
+docker build -t "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:${IMAGE_TAG}" services/games/minecraft
+
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/controller:${IMAGE_TAG}"
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/router:${IMAGE_TAG}"
+docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_PREFIX/minecraft:${IMAGE_TAG}"
+```
+
 5. Apply full stack (ECS task definitions + services):
 
 ```bash
@@ -389,11 +405,14 @@ This repo includes workflows for:
   - `environment`: `dev` or `prod`
   - `operation`: `deploy` or `destroy`
   - `aws_region`: defaults to `us-east-1`
-  Uses OIDC with `aws-actions/configure-aws-credentials`.
-  For `deploy`, it runs this sequence automatically:
-  1. Terraform bootstrap apply (`network`, `backups`, `ecr`, `iam`, `ecs`)
-  2. Build/push `controller`, `router`, and `minecraft` images to ECR
-  3. Terraform full apply (ECS services/task definitions)
+  Infra only (Terraform init/apply/destroy), no Docker image build.
+- `.github/workflows/images-manual.yml`
+  Manual workflow (`Run workflow`) with inputs:
+  - `environment`: `dev` or `prod`
+  - `aws_region`: defaults to `us-east-1`
+  Builds/pushes `controller`, `router`, and `minecraft` images to ECR with env tag:
+  - `dev` -> `dev-latest`
+  - `prod` -> `prod-latest`
 
 Required repository/environment secret:
 
