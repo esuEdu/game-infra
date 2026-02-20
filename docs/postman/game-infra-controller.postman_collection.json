@@ -1,0 +1,255 @@
+{
+  "info": {
+    "_postman_id": "4f9f0a64-6a2f-4c7f-bef5-cfd6b8c4f0ac",
+    "name": "Game Infra Controller API",
+    "description": "Controller API for Game Infra (Minecraft/Hytale orchestration).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/healthz",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "healthz"
+          ]
+        },
+        "description": "Basic health check endpoint."
+      },
+      "response": []
+    },
+    {
+      "name": "Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/status",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "status"
+          ]
+        },
+        "description": "Returns current controller state and active game status."
+      },
+      "response": []
+    },
+    {
+      "name": "Start Server (from data_url)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"game\": \"{{game}}\",\n  \"data_url\": \"{{dataUrl}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/server/start",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "server",
+            "start"
+          ]
+        },
+        "description": "Starts selected game after seeding files from provided Git/source URL."
+      },
+      "response": []
+    },
+    {
+      "name": "Start Server (from last backup)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"game\": \"{{game}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/server/start",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "server",
+            "start"
+          ]
+        },
+        "description": "Starts selected game from latest known backup. Returns error if no backup exists."
+      },
+      "response": []
+    },
+    {
+      "name": "Stop Server",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/server/stop",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "server",
+            "stop"
+          ]
+        },
+        "description": "Stops active game, creates backup, and syncs to source URL if tracked."
+      },
+      "response": []
+    },
+    {
+      "name": "Switch Server",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"game\": \"{{game}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/server/switch",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "server",
+            "switch"
+          ]
+        },
+        "description": "Switches from current active game to target game."
+      },
+      "response": []
+    },
+    {
+      "name": "Backup Active Server",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/v1/server/backup",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "server",
+            "backup"
+          ]
+        },
+        "description": "Creates backup of the currently active game server."
+      },
+      "response": []
+    },
+    {
+      "name": "Send Command",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"command\": \"{{command}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/server/command",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "server",
+            "command"
+          ]
+        },
+        "description": "Sends an in-game command to active server (adapter dependent)."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8088",
+      "type": "string"
+    },
+    {
+      "key": "game",
+      "value": "minecraft",
+      "type": "string"
+    },
+    {
+      "key": "dataUrl",
+      "value": "https://github.com/YOUR_ORG/YOUR_MC_FILES_REPO.git",
+      "type": "string"
+    },
+    {
+      "key": "command",
+      "value": "say hello from controller",
+      "type": "string"
+    }
+  ]
+}

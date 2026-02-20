@@ -41,6 +41,7 @@ jobs:
       TF_INPUT: "false"
       TF_DIR: infra/envs/${{ inputs.environment }}
       TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      AWS_REGION: ${{ inputs.aws_region }}
 
     steps:
       - name: Checkout code
@@ -72,13 +73,29 @@ jobs:
             -backend-config="use_lockfile=true" \
             -backend-config="encrypt=true"
 
-      - name: Terraform plan (deploy)
+      - name: Terraform apply (bootstrap infra + ECR)
         if: ${{ inputs.operation == 'deploy' }}
-        run: terraform -chdir="${TF_DIR}" plan -out=tfplan -input=false
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -RqsE 'module[[:space:]]+"network"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"backups"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"ecr"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"iam"' "${TF_DIR}" && \
+             grep -RqsE 'module[[:space:]]+"ecs"' "${TF_DIR}"; then
+            terraform -chdir="${TF_DIR}" apply -auto-approve -input=false \
+              -target=module.network \
+              -target=module.backups \
+              -target=module.ecr \
+              -target=module.iam \
+              -target=module.ecs
+          else
+            echo "No bootstrap module set found in ${TF_DIR}; skipping targeted bootstrap apply."
+          fi
 
-      - name: Terraform apply (deploy)
+      - name: Terraform apply (full stack)
         if: ${{ inputs.operation == 'deploy' }}
-        run: terraform -chdir="${TF_DIR}" apply -auto-approve tfplan
+        run: terraform -chdir="${TF_DIR}" apply -auto-approve -input=false
 
       - name: Terraform plan (destroy)
         if: ${{ inputs.operation == 'destroy' }}

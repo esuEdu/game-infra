@@ -7,4 +7,5 @@ var (
 	ErrUnknownGameType = errors.New("unknown game type")
 	ErrAnotherInFlight = errors.New("another operation is in progress")
 	ErrBadState        = errors.New("invalid state")
+	ErrNoBackupForGame = errors.New("no backup found for game")
 )

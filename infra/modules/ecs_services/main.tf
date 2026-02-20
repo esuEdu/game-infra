@@ -1,5 +1,5 @@
 locals {
-  controller_env = [
+  controller_env_base = [
     {
       name  = "HTTP_ADDR"
       value = ":${var.controller_container_port}"
@@ -11,8 +11,42 @@ locals {
     {
       name  = "BACKUP_BUCKET"
       value = var.backup_bucket_name
+    },
+    {
+      name  = "BACKUP_PREFIX"
+      value = var.backup_prefix
+    },
+    {
+      name  = "ECS_CLUSTER_NAME"
+      value = var.cluster_name
+    },
+    {
+      name  = "ECS_SERVICE_MINECRAFT"
+      value = "${var.name}-minecraft"
+    },
+    {
+      name  = "MC_DATA_DIR"
+      value = var.controller_minecraft_data_dir
+    },
+    {
+      name  = "GIT_USER_NAME"
+      value = var.controller_git_user_name
+    },
+    {
+      name  = "GIT_USER_EMAIL"
+      value = var.controller_git_user_email
     }
   ]
+
+  controller_env = concat(
+    local.controller_env_base,
+    var.controller_git_auth_token != "" ? [
+      {
+        name  = "GIT_AUTH_TOKEN"
+        value = var.controller_git_auth_token
+      }
+    ] : []
+  )
 
   minecraft_env_base = [
     {
@@ -51,6 +85,28 @@ locals {
 
   minecraft_env = concat(
     local.minecraft_env_base,
+    var.minecraft_git_bootstrap_repo != "" ? [
+      {
+        name  = "GIT_BOOTSTRAP_REPO"
+        value = var.minecraft_git_bootstrap_repo
+      },
+      {
+        name  = "GIT_BOOTSTRAP_REF"
+        value = var.minecraft_git_bootstrap_ref
+      }
+    ] : [],
+    var.minecraft_git_bootstrap_path != "" ? [
+      {
+        name  = "GIT_BOOTSTRAP_PATH"
+        value = var.minecraft_git_bootstrap_path
+      }
+    ] : [],
+    var.minecraft_git_bootstrap_token != "" ? [
+      {
+        name  = "GIT_BOOTSTRAP_TOKEN"
+        value = var.minecraft_git_bootstrap_token
+      }
+    ] : [],
     var.minecraft_server_url != "" ? [
       {
         name  = "SERVER_URL"
@@ -77,13 +133,25 @@ resource "aws_ecs_task_definition" "app" {
   execution_role_arn       = var.execution_role_arn
   task_role_arn            = var.task_role_arn
 
+  volume {
+    name      = "minecraft-data"
+    host_path = var.minecraft_data_host_path
+  }
+
   container_definitions = jsonencode([
     {
       name              = "controller"
-      image             = "${var.ecr_repo_urls["controller"]}:latest"
+      image             = "${var.ecr_repo_urls["controller"]}:${var.image_tag}"
       essential         = true
       memoryReservation = 256
       environment       = local.controller_env
+      mountPoints = [
+        {
+          sourceVolume  = "minecraft-data"
+          containerPath = var.controller_minecraft_data_dir
+          readOnly      = false
+        }
+      ]
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -95,7 +163,7 @@ resource "aws_ecs_task_definition" "app" {
     },
     {
       name              = "router"
-      image             = "${var.ecr_repo_urls["router"]}:latest"
+      image             = "${var.ecr_repo_urls["router"]}:${var.image_tag}"
       essential         = true
       memoryReservation = 128
       links             = ["controller"]
@@ -139,7 +207,7 @@ resource "aws_ecs_task_definition" "minecraft" {
   container_definitions = jsonencode([
     {
       name              = "minecraft"
-      image             = "${var.ecr_repo_urls["minecraft"]}:latest"
+      image             = "${var.ecr_repo_urls["minecraft"]}:${var.image_tag}"
       essential         = true
       memoryReservation = 2048
       environment       = local.minecraft_env

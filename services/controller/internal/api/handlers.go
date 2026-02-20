@@ -40,7 +40,8 @@ func handleStatus() appHandler {
 
 func handleStart() appHandler {
 	type req struct {
-		Game string `json:"game"`
+		Game    string `json:"game"`
+		DataURL string `json:"data_url"`
 	}
 	return func(a *app.App, w http.ResponseWriter, r *http.Request) error {
 		var body req
@@ -50,20 +51,22 @@ func handleStart() appHandler {
 		if body.Game == "" {
 			return badRequest("missing field: game")
 		}
-		if err := a.Controller.Start(r.Context(), body.Game); err != nil {
+		out, err := a.Controller.Start(r.Context(), body.Game, body.DataURL)
+		if err != nil {
 			return err
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"started": body.Game})
+		writeJSON(w, http.StatusOK, out)
 		return nil
 	}
 }
 
 func handleStop() appHandler {
 	return func(a *app.App, w http.ResponseWriter, r *http.Request) error {
-		if err := a.Controller.Stop(r.Context()); err != nil {
+		out, err := a.Controller.Stop(r.Context())
+		if err != nil {
 			return err
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"stopped": true})
+		writeJSON(w, http.StatusOK, out)
 		return nil
 	}
 }
